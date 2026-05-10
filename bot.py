@@ -10,7 +10,7 @@ from aiogram.types import (
 )
 
 TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
-ADMIN_ID =8656094320
+ADMIN_ID = 8656094320
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -28,6 +28,12 @@ user_amounts = {}
 
 order_id = 100
 orders = {}
+
+# =========================
+# КАЛЬКУЛЯТОР
+# =========================
+
+calc_users = {}
 
 # =========================
 # ГЛАВНОЕ МЕНЮ
@@ -439,7 +445,7 @@ async def decline_order(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
-# СООБЩЕНИЯ
+# СООБЩЕНИЯ + КАЛЬКУЛЯТОР
 # =========================
 
 @dp.message()
@@ -447,7 +453,26 @@ async def messages(message: Message):
 
     global RATE, KASPI_TEXT
 
+    # =========================
+    # КАЛЬКУЛЯТОР
+    # =========================
+    if message.from_user.id in calc_users:
+
+        if message.text and message.text.isdigit():
+
+            amount = int(message.text)
+            price = amount * RATE
+
+            await message.answer(
+                f"🧮 Стоимость ⭐\n\n🇰🇿 {price} KZT"
+            )
+
+            calc_users.pop(message.from_user.id, None)
+            return
+
+    # =========================
     # ADMIN
+    # =========================
 
     if message.from_user.id in admin_mode:
 
@@ -472,7 +497,9 @@ async def messages(message: Message):
         del admin_mode[message.from_user.id]
         return
 
-    # USERNAME ДРУГА
+    # =========================
+    # ДРУГ
+    # =========================
 
     if message.from_user.id in friend_users:
 
@@ -486,17 +513,17 @@ async def messages(message: Message):
 
             return
 
-    # КОЛИЧЕСТВО
+    # =========================
+    # ПОКУПКА
+    # =========================
 
-    if message.text.isdigit():
+    if message.text and message.text.isdigit():
 
         amount = int(message.text)
 
         if amount < 50:
 
-            await message.answer(
-                "⚠️ Минимум 50."
-            )
+            await message.answer("⚠️ Минимум 50.")
 
         else:
 
