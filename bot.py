@@ -10,7 +10,7 @@ from aiogram.types import (
 )
 
 TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
-ADMIN_ID = 8799385592
+ADMIN_ID = 8656094320
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -24,6 +24,7 @@ KASPI_TEXT = "4400430347936632"
 
 admin_mode = {}
 friend_users = {}
+user_amounts = {}
 
 # =========================
 # ГЛАВНОЕ МЕНЮ
@@ -181,19 +182,9 @@ async def buy(callback: CallbackQuery):
 @dp.callback_query(F.data == "self_buy")
 async def self_buy(callback: CallbackQuery):
 
-    user = callback.from_user.username
-
-    if not user:
-
-        await callback.message.answer(
-            "Обязательно установите имя пользователя! 💸 Сколько звезд хотите приобрести(мин. 50)?"
-        )
-
-    else:
-
-        await callback.message.answer(
-            f"Для @{user}. Сколько звезд?"
-        )
+    await callback.message.answer(
+        "Обязательно установите имя пользователя! 💸 Сколько звезд хотите приобрести(мин. 50)?"
+    )
 
     await callback.answer()
 
@@ -219,11 +210,13 @@ async def friend_buy(callback: CallbackQuery):
 @dp.callback_query(F.data == "pay_kaspi")
 async def pay_kaspi(callback: CallbackQuery):
 
-    await callback.message.answer(
-        f"""💳 К оплате: KZT
+    amount = user_amounts.get(callback.from_user.id, 0)
+    price = amount * RATE
 
-Оплатите на Kaspi без комментариев:
-{KASPI_TEXT}
+    await callback.message.answer(
+        f"""💳 К оплате: {price} KZT
+
+Оплатите на Kaspi без комментариев: {KASPI_TEXT}
 
 Отправьте чек в течение 30 минут."""
     )
@@ -363,11 +356,10 @@ async def messages(message: Message):
 
         else:
 
-            price = amount * RATE
+            user_amounts[message.from_user.id] = amount
 
             await message.answer(
-                f"Оплата **{amount} ⭐**:\n\n"
-                f"💳 К оплате: {price} KZT",
+                f"Оплата **{amount} ⭐**:",
                 parse_mode="Markdown",
                 reply_markup=pay_menu
             )
