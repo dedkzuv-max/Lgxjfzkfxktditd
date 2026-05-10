@@ -4,7 +4,8 @@ from aiogram.filters import CommandStart
 from aiogram.types import (
     Message,
     ReplyKeyboardMarkup,
-    KeyboardButton
+    KeyboardButton,
+    FSInputFile
 )
 
 TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
@@ -12,7 +13,6 @@ TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# КНОПКИ КАК НА ФОТО
 menu = ReplyKeyboardMarkup(
     keyboard=[
         [
@@ -30,20 +30,21 @@ menu = ReplyKeyboardMarkup(
     resize_keyboard=True
 )
 
-# START
 @dp.message(CommandStart())
 async def start(message: Message):
+
+    video = FSInputFile("video.mp4")  # видео должно лежать рядом с bot.py
+
     await message.answer_video(
-        video="https://files.catbox.moe/7l6kz1.mp4",  # сюда своё видео
+        video=video,
         caption=(
             "🌲👋 Добро пожаловать в Kuki Stars!\n\n"
-            "Самые дешевые звезды 💸\n"
+            "Самые дешевые звезды💸\n"
             "Покупка от 50 ⭐"
         ),
         reply_markup=menu
     )
 
-# ЗАПУСК
 async def main():
     print("Бот запущен")
     await dp.start_polling(bot)
