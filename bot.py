@@ -10,7 +10,7 @@ from aiogram.types import (
 )
 
 TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
-ADMIN_ID = 8656094320
+ADMIN_ID = 8799385592
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -74,12 +74,6 @@ buy_menu = InlineKeyboardMarkup(
             InlineKeyboardButton(
                 text="🎁 Другу",
                 callback_data="friend_buy"
-            )
-        ],
-        [
-            InlineKeyboardButton(
-                text="⬅️ Назад",
-                callback_data="back_menu"
             )
         ]
     ]
@@ -168,21 +162,15 @@ async def start(message: Message):
 @dp.callback_query(F.data == "buy")
 async def buy(callback: CallbackQuery):
 
-    await callback.message.answer(
-        "🌟 Покупка Stars\n\nДля кого покупаем?",
+    await callback.message.delete()
+
+    video = FSInputFile("video.mp4")
+
+    await callback.message.answer_video(
+        video=video,
+        caption="🌟 Покупка Stars\n\nДля кого покупаем?",
         reply_markup=buy_menu
     )
-
-    await callback.answer()
-
-# =========================
-# НАЗАД
-# =========================
-
-@dp.callback_query(F.data == "back_menu")
-async def back_menu(callback: CallbackQuery):
-
-    await callback.message.delete()
 
     await callback.answer()
 
@@ -204,7 +192,7 @@ async def self_buy(callback: CallbackQuery):
     else:
 
         await callback.message.answer(
-            "Сколько звезд хотите приобрести(мин. 50)?"
+            f"Для @{user}. Сколько звезд?"
         )
 
     await callback.answer()
@@ -286,7 +274,7 @@ async def admin_reqs(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
-# НАЗАД В АДМИНКУ
+# НАЗАД
 # =========================
 
 @dp.callback_query(F.data == "back_admin")
@@ -299,7 +287,7 @@ async def back_admin(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
-# ИЗМЕНИТЬ KASPI
+# KASPI
 # =========================
 
 @dp.callback_query(F.data == "admin_kaspi")
@@ -356,7 +344,7 @@ async def messages(message: Message):
             friend_users[message.from_user.id] = message.text
 
             await message.answer(
-                "Сколько звезд хотите приобрести(мин. 50)?"
+                f"Для {message.text}. Сколько звезд?"
             )
 
             return
@@ -378,7 +366,8 @@ async def messages(message: Message):
             price = amount * RATE
 
             await message.answer(
-                f"Оплата **{amount} ⭐**:",
+                f"Оплата **{amount} ⭐**:\n\n"
+                f"💳 К оплате: {price} KZT",
                 parse_mode="Markdown",
                 reply_markup=pay_menu
             )
