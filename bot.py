@@ -9,8 +9,8 @@ from aiogram.types import (
     FSInputFile
 )
 
-TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
-ADMIN_ID = 8656094320
+TOKEN = "TOKEN"
+ADMIN_ID = 123456789
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -34,6 +34,17 @@ orders = {}
 # =========================
 
 calc_users = {}
+
+calc_back = InlineKeyboardMarkup(
+    inline_keyboard=[
+        [
+            InlineKeyboardButton(
+                text="⬅️ Назад",
+                callback_data="back_main"
+            )
+        ]
+    ]
+)
 
 # =========================
 # ГЛАВНОЕ МЕНЮ
@@ -209,6 +220,22 @@ async def back_main(callback: CallbackQuery):
             "Покупка от 50 ⭐"
         ),
         reply_markup=menu
+    )
+
+    await callback.answer()
+
+# =========================
+# КАЛЬКУЛЯТОР ОТКРЫТЬ
+# =========================
+
+@dp.callback_query(F.data == "calc")
+async def calc(callback: CallbackQuery):
+
+    calc_users[callback.from_user.id] = True
+
+    await callback.message.answer(
+        "🧮 Калькулятор Stars\n\nВведите количество звезд:",
+        reply_markup=calc_back
     )
 
     await callback.answer()
@@ -456,6 +483,7 @@ async def messages(message: Message):
     # =========================
     # КАЛЬКУЛЯТОР
     # =========================
+
     if message.from_user.id in calc_users:
 
         if message.text and message.text.isdigit():
@@ -464,7 +492,8 @@ async def messages(message: Message):
             price = amount * RATE
 
             await message.answer(
-                f"🧮 Стоимость ⭐\n\n🇰🇿 {price} KZT"
+                f"🧮 Стоимость {amount} ⭐\n\n🇰🇿 {price} KZT",
+                reply_markup=calc_back
             )
 
             calc_users.pop(message.from_user.id, None)
