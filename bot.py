@@ -3,9 +3,8 @@ from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import (
     Message,
-    ReplyKeyboardMarkup,
-    KeyboardButton,
-    FSInputFile
+    InlineKeyboardMarkup,
+    InlineKeyboardButton
 )
 
 TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
@@ -13,35 +12,44 @@ TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-menu = ReplyKeyboardMarkup(
-    keyboard=[
+# INLINE КНОПКИ
+menu = InlineKeyboardMarkup(
+    inline_keyboard=[
         [
-            KeyboardButton(text="🌲 Купить Stars"),
-            KeyboardButton(text="🌿 Рефералы")
+            InlineKeyboardButton(
+                text="🌲 Купить Stars",
+                callback_data="buy"
+            ),
+            InlineKeyboardButton(
+                text="🌿 Рефералы",
+                callback_data="refs"
+            )
         ],
         [
-            KeyboardButton(text="🧮 Калькулятор"),
-            KeyboardButton(text="✉️ Поддержка")
+            InlineKeyboardButton(
+                text="🧮 Калькулятор",
+                callback_data="calc"
+            ),
+            InlineKeyboardButton(
+                text="✉️ Поддержка",
+                url="https://t.me/Kuki_Star_Kz"
+            )
         ],
         [
-            KeyboardButton(text="💬 Отзывы")
+            InlineKeyboardButton(
+                text="💬 Отзывы",
+                url="https://t.me/"
+            )
         ]
-    ],
-    resize_keyboard=True
+    ]
 )
 
 @dp.message(CommandStart())
 async def start(message: Message):
-
-    video = FSInputFile("video.mp4")  # видео должно лежать рядом с bot.py
-
-    await message.answer_video(
-        video=video,
-        caption=(
-            "🌲👋 Добро пожаловать в Kuki Stars!\n\n"
-            "Самые дешевые звезды💸\n"
-            "Покупка от 50 ⭐"
-        ),
+    await message.answer(
+        "🌲👋 Добро пожаловать в Kuki Stars!\n\n"
+        "Самые дешевые звезды 💸\n"
+        "Покупка от 50 ⭐",
         reply_markup=menu
     )
 
