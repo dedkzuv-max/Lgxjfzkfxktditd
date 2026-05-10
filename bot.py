@@ -10,7 +10,7 @@ from aiogram.types import (
 )
 
 TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
-ADMIN_ID = 8656094320
+ADMIN_ID =8656094320
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -25,6 +25,9 @@ KASPI_TEXT = "4400430347936632"
 admin_mode = {}
 friend_users = {}
 user_amounts = {}
+
+order_id = 100
+orders = {}
 
 # =========================
 # ГЛАВНОЕ МЕНЮ
@@ -75,6 +78,12 @@ buy_menu = InlineKeyboardMarkup(
             InlineKeyboardButton(
                 text="🎁 Другу",
                 callback_data="friend_buy"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="⬅️ Назад",
+                callback_data="back_main"
             )
         ]
     ]
@@ -176,6 +185,29 @@ async def buy(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
+# НАЗАД
+# =========================
+
+@dp.callback_query(F.data == "back_main")
+async def back_main(callback: CallbackQuery):
+
+    await callback.message.delete()
+
+    video = FSInputFile("video.mp4")
+
+    await callback.message.answer_video(
+        video=video,
+        caption=(
+            "🌲👋 Добро пожаловать в Bro Stars!\n\n"
+            "Самые дешевые звезды 💸\n"
+            "Покупка от 50 ⭐"
+        ),
+        reply_markup=menu
+    )
+
+    await callback.answer()
+
+# =========================
 # СЕБЕ
 # =========================
 
@@ -204,7 +236,7 @@ async def friend_buy(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
-# ОПЛАТА KASPI
+# ОПЛАТА
 # =========================
 
 @dp.callback_query(F.data == "pay_kaspi")
@@ -224,7 +256,7 @@ async def pay_kaspi(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
-# /APANEL
+# АДМИНКА
 # =========================
 
 @dp.message(F.text == "/apanel")
@@ -267,7 +299,7 @@ async def admin_reqs(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
-# НАЗАД
+# НАЗАД АДМИНКА
 # =========================
 
 @dp.callback_query(F.data == "back_admin")
@@ -295,6 +327,118 @@ async def admin_kaspi(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
+# ЧЕК
+# =========================
+
+@dp.message(F.photo | F.document)
+async def check_handler(message: Message):
+
+    global order_id
+
+    if message.from_user.id not in user_amounts:
+        return
+
+    amount = user_amounts[message.from_user.id]
+    price = amount * RATE
+
+    username = message.from_user.username
+
+    if not username:
+        username = "нет"
+
+    order_id += 1
+
+    orders[order_id] = message.from_user.id
+
+    keyboard = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(
+                    text="✅ Выдать",
+                    callback_data=f"accept_{order_id}"
+                ),
+                InlineKeyboardButton(
+                    text="❌ Отклонить",
+                    callback_data=f"decline_{order_id}"
+                )
+            ]
+        ]
+    )
+
+    text = (
+        f"🔔 ЗАКАЗ #{order_id}\n\n"
+        f"👤 @{username}\n"
+        f"⭐ {amount}\n"
+        f"💳 {price} KZT"
+    )
+
+    if message.photo:
+
+        await bot.send_photo(
+            ADMIN_ID,
+            photo=message.photo[-1].file_id,
+            caption=text,
+            reply_markup=keyboard
+        )
+
+    elif message.document:
+
+        await bot.send_document(
+            ADMIN_ID,
+            document=message.document.file_id,
+            caption=text,
+            reply_markup=keyboard
+        )
+
+    await message.answer(
+        "🪵 Чек принят, ожидайте подтверждения администратора!"
+    )
+
+# =========================
+# ВЫДАТЬ
+# =========================
+
+@dp.callback_query(F.data.startswith("accept_"))
+async def accept_order(callback: CallbackQuery):
+
+    order = int(callback.data.split("_")[1])
+
+    user_id = orders[order]
+
+    await bot.send_message(
+        user_id,
+        "✅ Заказ подтвержден, звезды будут отправлены в течение нескольких минут, будем рады вашему отзыву @KukiStarkz !"
+    )
+
+    await callback.message.edit_reply_markup(
+        reply_markup=None
+    )
+
+    await callback.answer()
+
+# =========================
+# ОТКЛОНИТЬ
+# =========================
+
+@dp.callback_query(F.data.startswith("decline_"))
+async def decline_order(callback: CallbackQuery):
+
+    order = int(callback.data.split("_")[1])
+
+    user_id = orders[order]
+
+    await bot.send_message(
+        user_id,
+        "❌ Заказ отклонен.\n\nПо вопросам вы можете обратиться в поддержку @Kuki_Star_Kz"
+    )
+
+    await callback.message.edit_reply_markup(
+        reply_markup=None
+    )
+
+    await callback.answer()
+
+# =========================
 # СООБЩЕНИЯ
 # =========================
 
@@ -303,7 +447,7 @@ async def messages(message: Message):
 
     global RATE, KASPI_TEXT
 
-    # ================= ADMIN =================
+    # ADMIN
 
     if message.from_user.id in admin_mode:
 
@@ -328,7 +472,7 @@ async def messages(message: Message):
         del admin_mode[message.from_user.id]
         return
 
-    # ================= USERNAME ДРУГА =================
+    # USERNAME ДРУГА
 
     if message.from_user.id in friend_users:
 
@@ -342,7 +486,7 @@ async def messages(message: Message):
 
             return
 
-    # ================= КОЛИЧЕСТВО =================
+    # КОЛИЧЕСТВО
 
     if message.text.isdigit():
 
