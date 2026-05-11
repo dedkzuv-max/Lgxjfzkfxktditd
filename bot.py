@@ -227,7 +227,7 @@ async def back_main(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
-# КАЛЬКУЛЯТОР ОТКРЫТЬ
+# КАЛЬКУЛЯТОР
 # =========================
 
 @dp.callback_query(F.data == "calc")
@@ -393,6 +393,15 @@ async def check_handler(message: Message):
     if not username:
         username = "нет"
 
+    buyer = f"@{username}"
+    receiver = buyer
+
+    if message.from_user.id in friend_users:
+
+        if isinstance(friend_users[message.from_user.id], str):
+
+            receiver = friend_users[message.from_user.id]
+
     order_id += 1
 
     orders[order_id] = message.from_user.id
@@ -413,10 +422,11 @@ async def check_handler(message: Message):
     )
 
     text = (
-        f"🔔 ЗАКАЗ #{order_id}\n\n"
-        f"👤 @{username}\n"
-        f"⭐ {amount}\n"
-        f"💳 {price} KZT"
+        f"🔔 **ЗАКАЗ #{order_id}**\n\n"
+        f"👤 От: **{buyer}**\n"
+        f"⭐: **{amount}**\n"
+        f"💰: **{price} KZT**\n"
+        f"📍 Кому: **{receiver}**"
     )
 
     if message.photo:
@@ -425,6 +435,7 @@ async def check_handler(message: Message):
             ADMIN_ID,
             photo=message.photo[-1].file_id,
             caption=text,
+            parse_mode="Markdown",
             reply_markup=keyboard
         )
 
@@ -434,6 +445,7 @@ async def check_handler(message: Message):
             ADMIN_ID,
             document=message.document.file_id,
             caption=text,
+            parse_mode="Markdown",
             reply_markup=keyboard
         )
 
@@ -488,7 +500,7 @@ async def decline_order(callback: CallbackQuery):
     await callback.answer()
 
 # =========================
-# СООБЩЕНИЯ + КАЛЬКУЛЯТОР
+# СООБЩЕНИЯ
 # =========================
 
 @dp.message()
@@ -554,6 +566,7 @@ async def messages(message: Message):
         if message.text.startswith("@"):
 
             friend_users[message.from_user.id] = message.text
+            buy_users[message.from_user.id] = True
 
             await message.answer(
                 f"Для {message.text}. Сколько звезд?"
