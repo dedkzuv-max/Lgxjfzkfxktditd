@@ -24,6 +24,7 @@ KASPI_TEXT = "4400430347936632"
 
 admin_mode = {}
 friend_users = {}
+buy_users = {}
 user_amounts = {}
 
 order_id = 100
@@ -251,6 +252,8 @@ async def calc(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "self_buy")
 async def self_buy(callback: CallbackQuery):
+
+    buy_users[callback.from_user.id] = True
 
     await callback.message.answer(
         "Обязательно установите имя пользователя! 💸 Сколько звезд хотите приобрести(мин. 50)?"
@@ -554,7 +557,7 @@ async def messages(message: Message):
     # ПОКУПКА
     # =========================
 
-    if message.text and message.text.isdigit():
+    if message.from_user.id in buy_users and message.text and message.text.isdigit():
 
         amount = int(message.text)
 
@@ -571,6 +574,8 @@ async def messages(message: Message):
                 parse_mode="Markdown",
                 reply_markup=pay_menu
             )
+
+        buy_users.pop(message.from_user.id, None)
 
 # =========================
 # ЗАПУСК
