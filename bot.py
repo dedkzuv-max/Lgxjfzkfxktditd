@@ -488,7 +488,7 @@ async def accept_order(callback: CallbackQuery):
 
     await bot.send_message(
         user_id,
-        "✅ Заказ подтвержден, звезды будут отправлены в течение нескольких минут!"
+        "✅ Заказ подтвержден, звезды будут отправлены в течение нескольких минут, будем рады вашему отзыву @KukiStarkz !"
     )
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.answer()
@@ -504,7 +504,7 @@ async def decline_order(callback: CallbackQuery):
 
     await bot.send_message(
         user_id,
-        "❌ Заказ отклонен.\n\nПо вопросам: @Kuki_Star_Kz"
+        "❌ Заказ отклонен.По вопросамвы можетеобратитьсяв поддержку @Kuki_Star_Kz"
     )
     await callback.message.edit_reply_markup(reply_markup=None)
     await callback.answer()
