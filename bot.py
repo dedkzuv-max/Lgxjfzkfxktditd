@@ -9,8 +9,8 @@ from aiogram.types import (
     FSInputFile
 )
 
-TOKEN = "TOKEN"
-ADMIN_ID = 123456789
+TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
+ADMIN_ID = 8656094320
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
@@ -233,8 +233,13 @@ async def calc(callback: CallbackQuery):
 
     calc_users[callback.from_user.id] = True
 
-    await callback.message.answer(
-        "🧮 Калькулятор Stars\n\nВведите количество звезд:",
+    await callback.message.delete()
+
+    video = FSInputFile("video.mp4")
+
+    await callback.message.answer_video(
+        video=video,
+        caption="🧮 Калькулятор Stars\n\nВведите количество звезд:",
         reply_markup=calc_back
     )
 
@@ -491,8 +496,11 @@ async def messages(message: Message):
             amount = int(message.text)
             price = amount * RATE
 
-            await message.answer(
-                f"🧮 Стоимость {amount} ⭐\n\n🇰🇿 {price} KZT",
+            video = FSInputFile("video.mp4")
+
+            await message.answer_video(
+                video=video,
+                caption=f"🧮 Стоимость {amount} ⭐\n\n🇰🇿 {price} KZT",
                 reply_markup=calc_back
             )
 
