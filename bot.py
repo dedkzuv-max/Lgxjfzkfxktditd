@@ -566,7 +566,7 @@ async def messages(message: Message):
             friend_wait.pop(message.from_user.id, None)
 
             await message.answer(
-                f"💸 Для {message.text}.\n\nСколько звезд хотите приобрести? (мин. 50)"
+                f"💸 Для {message.text}.\n\nСколько звезд?"
             )
 
             return
