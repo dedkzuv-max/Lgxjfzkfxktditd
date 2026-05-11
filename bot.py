@@ -34,7 +34,7 @@ broadcast_mode = {}
 
 order_id = 100
 orders = {}
-order_data = {}  # Храним данные каждого заказа
+order_data = {}
 
 # =========================
 # СТАТИСТИКА
@@ -50,7 +50,6 @@ total_revenue = 0
 order_logs = []
 
 def add_order_log(order_num, user_id, buyer_name, receiver_name, amount, price, status, admin_name):
-    """Добавляет запись в лог"""
     order_logs.append({
         "order_id": order_num,
         "user_id": user_id,
@@ -584,7 +583,6 @@ async def check_handler(message: Message):
     order_id += 1
     orders[order_id] = user_id
     
-    # СОХРАНЯЕМ ДАННЫЕ ЗАКАЗА
     order_data[order_id] = {
         "amount": amount,
         "price": price,
@@ -653,14 +651,12 @@ async def accept_order(callback: CallbackQuery):
     order = int(callback.data.split("_")[1])
     user_id = orders[order]
     
-    # Получаем данные заказа
     order_info = order_data.get(order, {})
     amount = order_info.get("amount", 0)
     price = order_info.get("price", 0)
     buyer_name = order_info.get("buyer", "неизвестно")
     receiver_name = order_info.get("receiver", "неизвестно")
     
-    # Обновляем статистику
     total_stars_sold += amount
     total_revenue += price
     total_orders_completed += 1
@@ -671,7 +667,6 @@ async def accept_order(callback: CallbackQuery):
     )
     await callback.message.edit_reply_markup(reply_markup=None)
     
-    # Добавляем в лог с полными данными
     add_order_log(order, user_id, buyer_name, receiver_name, amount, price, "принят", callback.from_user.username or "админ")
     
     await callback.answer(f"✅ Заказ #{order} принят! +{amount}⭐, {price}KZT")
@@ -689,7 +684,6 @@ async def decline_order(callback: CallbackQuery):
     order = int(callback.data.split("_")[1])
     user_id = orders[order]
     
-    # Получаем данные заказа
     order_info = order_data.get(order, {})
     amount = order_info.get("amount", 0)
     price = order_info.get("price", 0)
@@ -702,13 +696,12 @@ async def decline_order(callback: CallbackQuery):
     )
     await callback.message.edit_reply_markup(reply_markup=None)
     
-    # Добавляем в лог с полными данными
     add_order_log(order, user_id, buyer_name, receiver_name, amount, price, "отклонен", callback.from_user.username or "админ")
     
     await callback.answer(f"❌ Заказ #{order} отклонен!")
 
 # =========================
-# РАССЫЛКА
+# РАССЫЛКА (ОБРАБОТЧИК)
 # =========================
 
 @dp.message()
@@ -717,9 +710,6 @@ async def messages(message: Message):
 
     user_id = message.from_user.id
 
-    # =========================
-    # РАССЫЛКА
-    # =========================
     if user_id in broadcast_mode:
         if message.from_user.id != ADMIN_ID:
             broadcast_mode.pop(user_id, None)
@@ -751,9 +741,6 @@ async def messages(message: Message):
         broadcast_mode.pop(user_id, None)
         return
 
-    # =========================
-    # КАЛЬКУЛЯТОР
-    # =========================
     if user_id in calc_users:
         if message.text and message.text.isdigit():
             amount = int(message.text)
@@ -772,9 +759,6 @@ async def messages(message: Message):
             await message.answer("❌ Введите число")
             return
 
-    # =========================
-    # ADMIN
-    # =========================
     if user_id in admin_mode:
         mode = admin_mode[user_id]
         if mode == "rate":
@@ -789,9 +773,6 @@ async def messages(message: Message):
         admin_mode.pop(user_id, None)
         return
 
-    # =========================
-    # USERNAME ДРУГА
-    # =========================
     if user_id in buy_type and buy_type[user_id] == "friend" and friend_username.get(user_id) is None:
         if message.text and message.text.startswith("@"):
             friend_username[user_id] = message.text
@@ -804,9 +785,6 @@ async def messages(message: Message):
             await message.answer("❌ Введите username в формате @username")
             return
 
-    # =========================
-    # ОЖИДАНИЕ КОЛИЧЕСТВА ЗВЕЗД
-    # =========================
     if user_id in waiting_for_amount:
         if message.text and message.text.isdigit():
             amount = int(message.text)
