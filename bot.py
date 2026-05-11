@@ -1,4 +1,5 @@
 import asyncio
+import time
 from aiogram import Bot, Dispatcher, F
 from aiogram.filters import CommandStart
 from aiogram.types import (
@@ -29,22 +30,24 @@ user_amounts = {}
 buy_type = {}
 calc_users = {}
 waiting_for_amount = {}
-broadcast_mode = {}  # Режим рассылки
+broadcast_mode = {}
 
 order_id = 100
 orders = {}
+order_data = {}  # Храним данные каждого заказа
 
 # =========================
 # СТАТИСТИКА
 # =========================
-total_users = set()  # Все пользователи, кто запустил бота
-total_stars_sold = 0  # Всего продано звезд
-total_orders_completed = 0  # Всего выполненных заказов
+total_users = set()
+total_stars_sold = 0
+total_orders_completed = 0
+total_revenue = 0
 
 # =========================
 # ЛОГИ ЗАЯВОК
 # =========================
-order_logs = []  # Список всех заявок
+order_logs = []
 
 def add_order_log(order_num, user_id, buyer_name, receiver_name, amount, price, status, admin_name):
     """Добавляет запись в лог"""
@@ -57,7 +60,7 @@ def add_order_log(order_num, user_id, buyer_name, receiver_name, amount, price, 
         "price": price,
         "status": status,
         "admin": admin_name,
-        "time": asyncio.get_event_loop().time()
+        "time": time.time()
     })
 
 # =========================
@@ -151,7 +154,7 @@ pay_menu = InlineKeyboardMarkup(
 )
 
 # =========================
-# АДМИН МЕНЮ (НОВОЕ)
+# АДМИН МЕНЮ
 # =========================
 
 admin_menu = InlineKeyboardMarkup(
@@ -213,7 +216,7 @@ reqs_menu = InlineKeyboardMarkup(
 @dp.message(CommandStart())
 async def start(message: Message):
     user_id = message.from_user.id
-    total_users.add(user_id)  # Добавляем в статистику
+    total_users.add(user_id)
     
     calc_users.pop(user_id, None)
     waiting_for_amount.pop(user_id, None)
@@ -402,13 +405,11 @@ async def admin_stats(callback: CallbackQuery):
         await callback.answer("Доступ запрещен")
         return
     
-    total_kzt = total_stars_sold * RATE
-    
     stats_text = (
         f"📊 СТАТИСТИКА БОТА\n\n"
         f"👥 Пользователей: {len(total_users)}\n"
         f"⭐ Продано звезд: {total_stars_sold}\n"
-        f"💰 Выручка: {total_kzt} KZT\n"
+        f"💰 Выручка: {total_revenue} KZT\n"
         f"✅ Выполнено заказов: {total_orders_completed}\n"
         f"📋 Всего заявок в логах: {len(order_logs)}"
     )
@@ -448,7 +449,6 @@ async def admin_logs(callback: CallbackQuery):
         await callback.answer()
         return
     
-    # Показываем последние 10 заявок
     logs_text = "📋 ПОСЛЕДНИЕ ЗАЯВКИ:\n\n"
     for log in order_logs[-10:]:
         status_emoji = "✅" if log["status"] == "принят" else "❌"
@@ -459,7 +459,6 @@ async def admin_logs(callback: CallbackQuery):
             f"   👨‍💼 {log['admin']}\n\n"
         )
     
-    # Кнопка для полного лога
     full_log_btn = InlineKeyboardMarkup(
         inline_keyboard=[
             [InlineKeyboardButton(text="📋 Полный лог", callback_data="admin_full_log")]
@@ -480,20 +479,16 @@ async def admin_full_log(callback: CallbackQuery):
         await callback.answer()
         return
     
-    # Полный лог
     full_text = "📋 ПОЛНЫЙ ЛОГ ЗАЯВОК:\n\n"
     for log in order_logs:
         status_emoji = "✅" if log["status"] == "принят" else "❌"
         full_text += f"{status_emoji} #{log['order_id']} | {log['status']} | {log['amount']}⭐ | {log['price']}KZT | {log['admin']}\n"
     
-    # Если текст слишком длинный, разбиваем
     if len(full_text) > 4000:
-        await callback.message.answer("📋 Слишком много логов, отправляю файлом...")
-        # Здесь можно отправить файлом, но для простоты покажу последние 50
         short_text = "📋 ПОСЛЕДНИЕ 50 ЗАЯВОК:\n\n"
         for log in order_logs[-50:]:
             status_emoji = "✅" if log["status"] == "принят" else "❌"
-            short_text += f"{status_emoji} #{log['order_id']} | {log['status']} | {log['amount']}⭐\n"
+            short_text += f"{status_emoji} #{log['order_id']} | {log['status']} | {log['amount']}⭐ | {log['price']}KZT\n"
         await callback.message.answer(short_text)
     else:
         await callback.message.answer(full_text)
@@ -588,6 +583,14 @@ async def check_handler(message: Message):
 
     order_id += 1
     orders[order_id] = user_id
+    
+    # СОХРАНЯЕМ ДАННЫЕ ЗАКАЗА
+    order_data[order_id] = {
+        "amount": amount,
+        "price": price,
+        "buyer": buyer_display,
+        "receiver": receiver_display
+    }
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -641,6 +644,8 @@ async def check_handler(message: Message):
 
 @dp.callback_query(F.data.startswith("accept_"))
 async def accept_order(callback: CallbackQuery):
+    global total_stars_sold, total_orders_completed, total_revenue
+    
     if callback.from_user.id != ADMIN_ID:
         await callback.answer("Доступ запрещен")
         return
@@ -648,18 +653,16 @@ async def accept_order(callback: CallbackQuery):
     order = int(callback.data.split("_")[1])
     user_id = orders[order]
     
-    # Получаем данные заказа для лога
-    amount = 0
-    price = 0
-    buyer_name = "неизвестно"
-    receiver_name = "неизвестно"
-    
-    # Находим данные в логах или из последнего чека (упрощенно)
-    # В реальности лучше хранить данные заказа отдельно
+    # Получаем данные заказа
+    order_info = order_data.get(order, {})
+    amount = order_info.get("amount", 0)
+    price = order_info.get("price", 0)
+    buyer_name = order_info.get("buyer", "неизвестно")
+    receiver_name = order_info.get("receiver", "неизвестно")
     
     # Обновляем статистику
-    global total_stars_sold, total_orders_completed
-    # Здесь нужно добавить amount из заказа
+    total_stars_sold += amount
+    total_revenue += price
     total_orders_completed += 1
 
     await bot.send_message(
@@ -668,10 +671,10 @@ async def accept_order(callback: CallbackQuery):
     )
     await callback.message.edit_reply_markup(reply_markup=None)
     
-    # Добавляем в лог
+    # Добавляем в лог с полными данными
     add_order_log(order, user_id, buyer_name, receiver_name, amount, price, "принят", callback.from_user.username or "админ")
     
-    await callback.answer()
+    await callback.answer(f"✅ Заказ #{order} принят! +{amount}⭐, {price}KZT")
 
 # =========================
 # ОТКЛОНИТЬ
@@ -685,6 +688,13 @@ async def decline_order(callback: CallbackQuery):
     
     order = int(callback.data.split("_")[1])
     user_id = orders[order]
+    
+    # Получаем данные заказа
+    order_info = order_data.get(order, {})
+    amount = order_info.get("amount", 0)
+    price = order_info.get("price", 0)
+    buyer_name = order_info.get("buyer", "неизвестно")
+    receiver_name = order_info.get("receiver", "неизвестно")
 
     await bot.send_message(
         user_id,
@@ -692,18 +702,18 @@ async def decline_order(callback: CallbackQuery):
     )
     await callback.message.edit_reply_markup(reply_markup=None)
     
-    # Добавляем в лог
-    add_order_log(order, user_id, "неизвестно", "неизвестно", 0, 0, "отклонен", callback.from_user.username or "админ")
+    # Добавляем в лог с полными данными
+    add_order_log(order, user_id, buyer_name, receiver_name, amount, price, "отклонен", callback.from_user.username or "админ")
     
-    await callback.answer()
+    await callback.answer(f"❌ Заказ #{order} отклонен!")
 
 # =========================
-# РАССЫЛКА (ОБРАБОТЧИК)
+# РАССЫЛКА
 # =========================
 
 @dp.message()
 async def messages(message: Message):
-    global RATE, KASPI_TEXT, total_stars_sold
+    global RATE, KASPI_TEXT
 
     user_id = message.from_user.id
 
@@ -763,7 +773,7 @@ async def messages(message: Message):
             return
 
     # =========================
-    # ADMIN (курс, kaspi)
+    # ADMIN
     # =========================
     if user_id in admin_mode:
         mode = admin_mode[user_id]
