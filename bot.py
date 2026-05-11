@@ -23,23 +23,20 @@ RATE = 7.5
 KASPI_TEXT = "4400430347936632"
 
 admin_mode = {}
-
-calc_users = {}
-
+friend_users = {}
 buy_users = {}
-friend_wait = {}
-
 wait_check = {}
-
 user_amounts = {}
-user_receivers = {}
+buy_type = {}
 
 order_id = 100
 orders = {}
 
 # =========================
-# КНОПКИ
+# КАЛЬКУЛЯТОР
 # =========================
+
+calc_users = {}
 
 calc_back = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -51,6 +48,10 @@ calc_back = InlineKeyboardMarkup(
         ]
     ]
 )
+
+# =========================
+# ГЛАВНОЕ МЕНЮ
+# =========================
 
 menu = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -83,6 +84,10 @@ menu = InlineKeyboardMarkup(
     ]
 )
 
+# =========================
+# ПОКУПКА
+# =========================
+
 buy_menu = InlineKeyboardMarkup(
     inline_keyboard=[
         [
@@ -104,6 +109,10 @@ buy_menu = InlineKeyboardMarkup(
     ]
 )
 
+# =========================
+# ОПЛАТА
+# =========================
+
 pay_menu = InlineKeyboardMarkup(
     inline_keyboard=[
         [
@@ -114,6 +123,10 @@ pay_menu = InlineKeyboardMarkup(
         ]
     ]
 )
+
+# =========================
+# АДМИН МЕНЮ
+# =========================
 
 admin_menu = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -131,6 +144,10 @@ admin_menu = InlineKeyboardMarkup(
         ]
     ]
 )
+
+# =========================
+# РЕКВИЗИТЫ
+# =========================
 
 reqs_menu = InlineKeyboardMarkup(
     inline_keyboard=[
@@ -196,7 +213,8 @@ async def back_main(callback: CallbackQuery):
 
     calc_users.pop(callback.from_user.id, None)
     buy_users.pop(callback.from_user.id, None)
-    friend_wait.pop(callback.from_user.id, None)
+    friend_users.pop(callback.from_user.id, None)
+    buy_type.pop(callback.from_user.id, None)
 
     await callback.message.delete()
 
@@ -242,14 +260,12 @@ async def calc(callback: CallbackQuery):
 @dp.callback_query(F.data == "self_buy")
 async def self_buy(callback: CallbackQuery):
 
-    buy_users[callback.from_user.id] = True
+    user_id = callback.from_user.id
 
-    username = callback.from_user.username
+    buy_type[user_id] = "self"
+    buy_users[user_id] = True
 
-    if username:
-        user_receivers[callback.from_user.id] = f"@{username}"
-    else:
-        user_receivers[callback.from_user.id] = "нет username"
+    friend_users.pop(user_id, None)
 
     await callback.message.answer(
         "💸 Сколько звезд хотите приобрести? (мин. 50)"
@@ -264,7 +280,10 @@ async def self_buy(callback: CallbackQuery):
 @dp.callback_query(F.data == "friend_buy")
 async def friend_buy(callback: CallbackQuery):
 
-    friend_wait[callback.from_user.id] = True
+    user_id = callback.from_user.id
+
+    buy_type[user_id] = "friend"
+    friend_users[user_id] = True
 
     await callback.message.answer(
         "👤 Введите @username друга"
@@ -361,7 +380,7 @@ async def admin_kaspi(callback: CallbackQuery):
     admin_mode[callback.from_user.id] = "kaspi"
 
     await callback.message.answer(
-        "Введите новый текст Kaspi:"
+        "Введите новые реквизиты Kaspi:"
     )
 
     await callback.answer()
@@ -375,13 +394,15 @@ async def check_handler(message: Message):
 
     global order_id
 
-    if message.from_user.id not in wait_check:
+    user_id = message.from_user.id
+
+    if user_id not in wait_check:
         return
 
-    if message.from_user.id not in user_amounts:
+    if user_id not in user_amounts:
         return
 
-    amount = user_amounts[message.from_user.id]
+    amount = user_amounts[user_id]
     price = amount * RATE
 
     username = message.from_user.username
@@ -389,16 +410,20 @@ async def check_handler(message: Message):
     if username:
         buyer = f"@{username}"
     else:
-        buyer = "нет username"
+        buyer = f"{message.from_user.full_name}"
 
-    receiver = user_receivers.get(
-        message.from_user.id,
-        buyer
-    )
+    receiver = buyer
+
+    if buy_type.get(user_id) == "friend":
+
+        friend_username = friend_users.get(user_id)
+
+        if isinstance(friend_username, str):
+            receiver = friend_username
 
     order_id += 1
 
-    orders[order_id] = message.from_user.id
+    orders[order_id] = user_id
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -418,9 +443,9 @@ async def check_handler(message: Message):
     text = (
         f"🔔 ЗАКАЗ #{order_id}\n\n"
         f"👤 От: {buyer}\n"
-        f"⭐: {amount}\n"
-        f"💰: {price} KZT\n"
-        f"📍 Кому: {receiver}"
+        f"📍 Кому: {receiver}\n"
+        f"⭐ Количество: {amount}\n"
+        f"💰 Сумма: {price} KZT"
     )
 
     if message.photo:
@@ -445,7 +470,11 @@ async def check_handler(message: Message):
         "🪵 Чек принят, ожидайте подтверждения администратора!"
     )
 
-    wait_check.pop(message.from_user.id, None)
+    wait_check.pop(user_id, None)
+    buy_users.pop(user_id, None)
+    user_amounts.pop(user_id, None)
+    friend_users.pop(user_id, None)
+    buy_type.pop(user_id, None)
 
 # =========================
 # ВЫДАТЬ
@@ -482,7 +511,7 @@ async def decline_order(callback: CallbackQuery):
 
     await bot.send_message(
         user_id,
-        "❌ Заказ отклонен.\n\nПоддержка: @Kuki_Star_Kz"
+        "❌ Заказ отклонен.\n\nПо вопросам: @Kuki_Star_Kz"
     )
 
     await callback.message.edit_reply_markup(
@@ -500,11 +529,13 @@ async def messages(message: Message):
 
     global RATE, KASPI_TEXT
 
+    user_id = message.from_user.id
+
     # =========================
     # КАЛЬКУЛЯТОР
     # =========================
 
-    if message.from_user.id in calc_users:
+    if user_id in calc_users:
 
         if message.text and message.text.isdigit():
 
@@ -528,45 +559,56 @@ async def messages(message: Message):
     # ADMIN
     # =========================
 
-    if message.from_user.id in admin_mode:
+    if user_id in admin_mode:
 
-        mode = admin_mode[message.from_user.id]
+        mode = admin_mode[user_id]
 
         if mode == "rate":
 
-            RATE = float(message.text)
+            try:
+                RATE = float(message.text)
 
-            await message.answer(
-                f"Новый курс: {RATE}"
-            )
+                await message.answer(
+                    f"✅ Новый курс: {RATE}"
+                )
+
+            except:
+                await message.answer(
+                    "❌ Введите число"
+                )
 
         elif mode == "kaspi":
 
             KASPI_TEXT = message.text
 
             await message.answer(
-                "Kaspi обновлен."
+                "✅ Kaspi обновлен"
             )
 
-        admin_mode.pop(message.from_user.id, None)
+        admin_mode.pop(user_id, None)
         return
 
     # =========================
     # USERNAME ДРУГА
     # =========================
 
-    if message.from_user.id in friend_wait:
+    if user_id in friend_users and friend_users[user_id] is True:
 
         if message.text.startswith("@"):
 
-            user_receivers[message.from_user.id] = message.text
-
-            buy_users[message.from_user.id] = True
-
-            friend_wait.pop(message.from_user.id, None)
+            friend_users[user_id] = message.text
+            buy_users[user_id] = True
 
             await message.answer(
-                f"💸 Для {message.text}.Сколько звезд?"
+                "💸 Сколько звезд хотите приобрести? (мин. 50)"
+            )
+
+            return
+
+        else:
+
+            await message.answer(
+                "❌ Введите username в формате @username"
             )
 
             return
@@ -575,7 +617,7 @@ async def messages(message: Message):
     # ПОКУПКА
     # =========================
 
-    if message.from_user.id in buy_users:
+    if user_id in buy_users:
 
         if message.text and message.text.isdigit():
 
@@ -586,16 +628,15 @@ async def messages(message: Message):
                 await message.answer(
                     "⚠️ Минимум 50."
                 )
+
                 return
 
-            user_amounts[message.from_user.id] = amount
+            user_amounts[user_id] = amount
 
             await message.answer(
-                f"Оплата {amount} ⭐",
+                f"💳 Оплата {amount} ⭐",
                 reply_markup=pay_menu
             )
-
-            buy_users.pop(message.from_user.id, None)
 
             return
 
