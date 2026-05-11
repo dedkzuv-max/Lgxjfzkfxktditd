@@ -25,6 +25,7 @@ KASPI_TEXT = "4400430347936632"
 admin_mode = {}
 friend_users = {}
 buy_users = {}
+wait_check = {}
 user_amounts = {}
 
 order_id = 100
@@ -283,6 +284,8 @@ async def friend_buy(callback: CallbackQuery):
 @dp.callback_query(F.data == "pay_kaspi")
 async def pay_kaspi(callback: CallbackQuery):
 
+    wait_check[callback.from_user.id] = True
+
     amount = user_amounts.get(callback.from_user.id, 0)
     price = amount * RATE
 
@@ -376,6 +379,9 @@ async def check_handler(message: Message):
 
     global order_id
 
+    if message.from_user.id not in wait_check:
+        return
+
     if message.from_user.id not in user_amounts:
         return
 
@@ -434,6 +440,8 @@ async def check_handler(message: Message):
     await message.answer(
         "🪵 Чек принят, ожидайте подтверждения администратора!"
     )
+
+    wait_check.pop(message.from_user.id, None)
 
 # =========================
 # ВЫДАТЬ
@@ -557,15 +565,16 @@ async def messages(message: Message):
     # ПОКУПКА
     # =========================
 
-    if message.from_user.id in buy_users and message.text and message.text.isdigit():
+    if message.from_user.id in buy_users:
 
-        amount = int(message.text)
+        if message.text and message.text.isdigit():
 
-        if amount < 50:
+            amount = int(message.text)
 
-            await message.answer("⚠️ Минимум 50.")
+            if amount < 50:
 
-        else:
+                await message.answer("⚠️ Минимум 50.")
+                return
 
             user_amounts[message.from_user.id] = amount
 
@@ -575,7 +584,8 @@ async def messages(message: Message):
                 reply_markup=pay_menu
             )
 
-        buy_users.pop(message.from_user.id, None)
+            buy_users.pop(message.from_user.id, None)
+            return
 
 # =========================
 # ЗАПУСК
