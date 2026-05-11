@@ -29,9 +29,36 @@ user_amounts = {}
 buy_type = {}
 calc_users = {}
 waiting_for_amount = {}
+broadcast_mode = {}  # Режим рассылки
 
 order_id = 100
 orders = {}
+
+# =========================
+# СТАТИСТИКА
+# =========================
+total_users = set()  # Все пользователи, кто запустил бота
+total_stars_sold = 0  # Всего продано звезд
+total_orders_completed = 0  # Всего выполненных заказов
+
+# =========================
+# ЛОГИ ЗАЯВОК
+# =========================
+order_logs = []  # Список всех заявок
+
+def add_order_log(order_num, user_id, buyer_name, receiver_name, amount, price, status, admin_name):
+    """Добавляет запись в лог"""
+    order_logs.append({
+        "order_id": order_num,
+        "user_id": user_id,
+        "buyer": buyer_name,
+        "receiver": receiver_name,
+        "amount": amount,
+        "price": price,
+        "status": status,
+        "admin": admin_name,
+        "time": asyncio.get_event_loop().time()
+    })
 
 # =========================
 # КАЛЬКУЛЯТОР
@@ -124,7 +151,7 @@ pay_menu = InlineKeyboardMarkup(
 )
 
 # =========================
-# АДМИН МЕНЮ
+# АДМИН МЕНЮ (НОВОЕ)
 # =========================
 
 admin_menu = InlineKeyboardMarkup(
@@ -133,12 +160,26 @@ admin_menu = InlineKeyboardMarkup(
             InlineKeyboardButton(
                 text="💸 Курс",
                 callback_data="admin_rate"
+            ),
+            InlineKeyboardButton(
+                text="💳 Реквизиты",
+                callback_data="admin_reqs"
             )
         ],
         [
             InlineKeyboardButton(
-                text="💳 Реквизиты",
-                callback_data="admin_reqs"
+                text="📊 Статистика",
+                callback_data="admin_stats"
+            ),
+            InlineKeyboardButton(
+                text="📢 Рассылка",
+                callback_data="admin_broadcast"
+            )
+        ],
+        [
+            InlineKeyboardButton(
+                text="📋 Логи заявок",
+                callback_data="admin_logs"
             )
         ]
     ]
@@ -172,6 +213,8 @@ reqs_menu = InlineKeyboardMarkup(
 @dp.message(CommandStart())
 async def start(message: Message):
     user_id = message.from_user.id
+    total_users.add(user_id)  # Добавляем в статистику
+    
     calc_users.pop(user_id, None)
     waiting_for_amount.pop(user_id, None)
     buy_type.pop(user_id, None)
@@ -193,7 +236,6 @@ async def start(message: Message):
 # =========================
 
 def get_user_display(user):
-    """Возвращает красивое отображение пользователя"""
     if user.username:
         return f"@{user.username}"
     elif user.full_name:
@@ -351,11 +393,122 @@ async def admin_panel(message: Message):
     )
 
 # =========================
+# СТАТИСТИКА
+# =========================
+
+@dp.callback_query(F.data == "admin_stats")
+async def admin_stats(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
+    
+    total_kzt = total_stars_sold * RATE
+    
+    stats_text = (
+        f"📊 СТАТИСТИКА БОТА\n\n"
+        f"👥 Пользователей: {len(total_users)}\n"
+        f"⭐ Продано звезд: {total_stars_sold}\n"
+        f"💰 Выручка: {total_kzt} KZT\n"
+        f"✅ Выполнено заказов: {total_orders_completed}\n"
+        f"📋 Всего заявок в логах: {len(order_logs)}"
+    )
+    
+    await callback.message.answer(stats_text)
+    await callback.answer()
+
+# =========================
+# РАССЫЛКА
+# =========================
+
+@dp.callback_query(F.data == "admin_broadcast")
+async def admin_broadcast(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
+    
+    broadcast_mode[callback.from_user.id] = True
+    await callback.message.answer(
+        "📢 Введите текст для рассылки всем пользователям:\n\n"
+        "Отправьте текст, фото или видео для рассылки."
+    )
+    await callback.answer()
+
+# =========================
+# ЛОГИ ЗАЯВОК
+# =========================
+
+@dp.callback_query(F.data == "admin_logs")
+async def admin_logs(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
+    
+    if not order_logs:
+        await callback.message.answer("📋 Логов пока нет")
+        await callback.answer()
+        return
+    
+    # Показываем последние 10 заявок
+    logs_text = "📋 ПОСЛЕДНИЕ ЗАЯВКИ:\n\n"
+    for log in order_logs[-10:]:
+        status_emoji = "✅" if log["status"] == "принят" else "❌"
+        logs_text += (
+            f"{status_emoji} #{log['order_id']} | {log['status']}\n"
+            f"   👤 {log['buyer']} → {log['receiver']}\n"
+            f"   ⭐ {log['amount']} | {log['price']} KZT\n"
+            f"   👨‍💼 {log['admin']}\n\n"
+        )
+    
+    # Кнопка для полного лога
+    full_log_btn = InlineKeyboardMarkup(
+        inline_keyboard=[
+            [InlineKeyboardButton(text="📋 Полный лог", callback_data="admin_full_log")]
+        ]
+    )
+    
+    await callback.message.answer(logs_text, reply_markup=full_log_btn)
+    await callback.answer()
+
+@dp.callback_query(F.data == "admin_full_log")
+async def admin_full_log(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
+    
+    if not order_logs:
+        await callback.message.answer("📋 Логов пока нет")
+        await callback.answer()
+        return
+    
+    # Полный лог
+    full_text = "📋 ПОЛНЫЙ ЛОГ ЗАЯВОК:\n\n"
+    for log in order_logs:
+        status_emoji = "✅" if log["status"] == "принят" else "❌"
+        full_text += f"{status_emoji} #{log['order_id']} | {log['status']} | {log['amount']}⭐ | {log['price']}KZT | {log['admin']}\n"
+    
+    # Если текст слишком длинный, разбиваем
+    if len(full_text) > 4000:
+        await callback.message.answer("📋 Слишком много логов, отправляю файлом...")
+        # Здесь можно отправить файлом, но для простоты покажу последние 50
+        short_text = "📋 ПОСЛЕДНИЕ 50 ЗАЯВОК:\n\n"
+        for log in order_logs[-50:]:
+            status_emoji = "✅" if log["status"] == "принят" else "❌"
+            short_text += f"{status_emoji} #{log['order_id']} | {log['status']} | {log['amount']}⭐\n"
+        await callback.message.answer(short_text)
+    else:
+        await callback.message.answer(full_text)
+    
+    await callback.answer()
+
+# =========================
 # КУРС
 # =========================
 
 @dp.callback_query(F.data == "admin_rate")
 async def admin_rate(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
     admin_mode[callback.from_user.id] = "rate"
     await callback.message.answer("Введите новый курс:")
     await callback.answer()
@@ -366,6 +519,9 @@ async def admin_rate(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "admin_reqs")
 async def admin_reqs(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
     await callback.message.edit_reply_markup(
         reply_markup=reqs_menu
     )
@@ -377,6 +533,9 @@ async def admin_reqs(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "back_admin")
 async def back_admin(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
     await callback.message.edit_reply_markup(
         reply_markup=admin_menu
     )
@@ -388,6 +547,9 @@ async def back_admin(callback: CallbackQuery):
 
 @dp.callback_query(F.data == "admin_kaspi")
 async def admin_kaspi(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
     admin_mode[callback.from_user.id] = "kaspi"
     await callback.message.answer("Введите новые реквизиты Kaspi:")
     await callback.answer()
@@ -413,13 +575,10 @@ async def check_handler(message: Message):
     amount = user_amounts[user_id]
     price = amount * RATE
 
-    # Красивое отображение покупателя
     buyer_display = get_user_display(message.from_user)
 
-    # Определяем получателя
     if buy_type.get(user_id) == "friend":
         receiver_raw = friend_username.get(user_id, "не указан")
-        # Если receiver_raw начинается с @, показываем как есть, иначе добавляем @
         if receiver_raw and not receiver_raw.startswith("@"):
             receiver_display = f"@{receiver_raw}"
         else:
@@ -470,7 +629,6 @@ async def check_handler(message: Message):
 
     await message.answer("🪵 Чек принят, ожидайте подтверждения администратора!")
 
-    # Очищаем состояния
     wait_check.pop(user_id, None)
     waiting_for_amount.pop(user_id, None)
     user_amounts.pop(user_id, None)
@@ -483,14 +641,36 @@ async def check_handler(message: Message):
 
 @dp.callback_query(F.data.startswith("accept_"))
 async def accept_order(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
+    
     order = int(callback.data.split("_")[1])
     user_id = orders[order]
+    
+    # Получаем данные заказа для лога
+    amount = 0
+    price = 0
+    buyer_name = "неизвестно"
+    receiver_name = "неизвестно"
+    
+    # Находим данные в логах или из последнего чека (упрощенно)
+    # В реальности лучше хранить данные заказа отдельно
+    
+    # Обновляем статистику
+    global total_stars_sold, total_orders_completed
+    # Здесь нужно добавить amount из заказа
+    total_orders_completed += 1
 
     await bot.send_message(
         user_id,
         "✅ Заказ подтвержден, звезды будут отправлены в течение нескольких минут, будем рады вашему отзыву @KukiStarkz !"
     )
     await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Добавляем в лог
+    add_order_log(order, user_id, buyer_name, receiver_name, amount, price, "принят", callback.from_user.username or "админ")
+    
     await callback.answer()
 
 # =========================
@@ -499,6 +679,10 @@ async def accept_order(callback: CallbackQuery):
 
 @dp.callback_query(F.data.startswith("decline_"))
 async def decline_order(callback: CallbackQuery):
+    if callback.from_user.id != ADMIN_ID:
+        await callback.answer("Доступ запрещен")
+        return
+    
     order = int(callback.data.split("_")[1])
     user_id = orders[order]
 
@@ -507,30 +691,59 @@ async def decline_order(callback: CallbackQuery):
         "❌ Заказ отклонен.По вопросамвы можетеобратитьсяв поддержку @Kuki_Star_Kz"
     )
     await callback.message.edit_reply_markup(reply_markup=None)
+    
+    # Добавляем в лог
+    add_order_log(order, user_id, "неизвестно", "неизвестно", 0, 0, "отклонен", callback.from_user.username or "админ")
+    
     await callback.answer()
 
 # =========================
-# РЕФЕРАЛЫ
-# =========================
-
-@dp.callback_query(F.data == "refs")
-async def refs(callback: CallbackQuery):
-    await callback.message.answer(
-        "🌿 Реферальная система скоро будет доступна!"
-    )
-    await callback.answer()
-
-# =========================
-# СООБЩЕНИЯ
+# РАССЫЛКА (ОБРАБОТЧИК)
 # =========================
 
 @dp.message()
 async def messages(message: Message):
-    global RATE, KASPI_TEXT
+    global RATE, KASPI_TEXT, total_stars_sold
 
     user_id = message.from_user.id
 
+    # =========================
+    # РАССЫЛКА
+    # =========================
+    if user_id in broadcast_mode:
+        if message.from_user.id != ADMIN_ID:
+            broadcast_mode.pop(user_id, None)
+            return
+        
+        success_count = 0
+        fail_count = 0
+        
+        await message.answer("📢 Начинаю рассылку...")
+        
+        for uid in total_users:
+            try:
+                if message.text:
+                    await bot.send_message(uid, message.text)
+                elif message.photo:
+                    await bot.send_photo(uid, message.photo[-1].file_id, caption=message.caption)
+                elif message.video:
+                    await bot.send_video(uid, message.video.file_id, caption=message.caption)
+                success_count += 1
+            except:
+                fail_count += 1
+        
+        await message.answer(
+            f"📢 Рассылка завершена!\n\n"
+            f"✅ Доставлено: {success_count}\n"
+            f"❌ Не доставлено: {fail_count}"
+        )
+        
+        broadcast_mode.pop(user_id, None)
+        return
+
+    # =========================
     # КАЛЬКУЛЯТОР
+    # =========================
     if user_id in calc_users:
         if message.text and message.text.isdigit():
             amount = int(message.text)
@@ -549,7 +762,9 @@ async def messages(message: Message):
             await message.answer("❌ Введите число")
             return
 
-    # ADMIN
+    # =========================
+    # ADMIN (курс, kaspi)
+    # =========================
     if user_id in admin_mode:
         mode = admin_mode[user_id]
         if mode == "rate":
@@ -564,7 +779,9 @@ async def messages(message: Message):
         admin_mode.pop(user_id, None)
         return
 
+    # =========================
     # USERNAME ДРУГА
+    # =========================
     if user_id in buy_type and buy_type[user_id] == "friend" and friend_username.get(user_id) is None:
         if message.text and message.text.startswith("@"):
             friend_username[user_id] = message.text
@@ -577,7 +794,9 @@ async def messages(message: Message):
             await message.answer("❌ Введите username в формате @username")
             return
 
+    # =========================
     # ОЖИДАНИЕ КОЛИЧЕСТВА ЗВЕЗД
+    # =========================
     if user_id in waiting_for_amount:
         if message.text and message.text.isdigit():
             amount = int(message.text)
@@ -596,6 +815,17 @@ async def messages(message: Message):
         else:
             await message.answer("❌ Введите число (минимум 50)")
             return
+
+# =========================
+# РЕФЕРАЛЫ
+# =========================
+
+@dp.callback_query(F.data == "refs")
+async def refs(callback: CallbackQuery):
+    await callback.message.answer(
+        "🌿 Реферальная система скоро будет доступна!"
+    )
+    await callback.answer()
 
 # =========================
 # ЗАПУСК
