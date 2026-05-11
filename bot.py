@@ -28,7 +28,7 @@ buy_users = {}
 wait_check = {}
 user_amounts = {}
 
-order_id = 100
+order_id = 0
 orders = {}
 
 # =========================
@@ -391,9 +391,10 @@ async def check_handler(message: Message):
     username = message.from_user.username
 
     if not username:
-        username = "нет"
+        username = message.from_user.full_name
 
     buyer = f"@{username}"
+
     receiver = buyer
 
     if message.from_user.id in friend_users:
