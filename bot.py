@@ -28,7 +28,7 @@ buy_users = {}
 wait_check = {}
 user_amounts = {}
 
-order_id = 0
+order_id = 100
 orders = {}
 
 # =========================
@@ -391,10 +391,9 @@ async def check_handler(message: Message):
     username = message.from_user.username
 
     if not username:
-        username = message.from_user.full_name
+        username = "нет"
 
     buyer = f"@{username}"
-
     receiver = buyer
 
     if message.from_user.id in friend_users:
@@ -564,16 +563,18 @@ async def messages(message: Message):
 
     if message.from_user.id in friend_users:
 
-        if message.text.startswith("@"):
+        if friend_users[message.from_user.id] is True:
 
-            friend_users[message.from_user.id] = message.text
-            buy_users[message.from_user.id] = True
+            if message.text.startswith("@"):
 
-            await message.answer(
-                f"Для {message.text}. Сколько звезд?"
-            )
+                friend_users[message.from_user.id] = message.text
+                buy_users[message.from_user.id] = True
 
-            return
+                await message.answer(
+                    f"Для {message.text}. Сколько звезд?"
+                )
+
+                return
 
     # =========================
     # ПОКУПКА
