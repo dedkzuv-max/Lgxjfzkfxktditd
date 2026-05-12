@@ -226,7 +226,7 @@ async def start(message: Message):
     await message.answer_video(
         video=video,
         caption=(
-            "🌲👋 Добро пожаловать в Bro Stars!\n\n"
+            "🌲👋 Добро пожаловать в Kuki Stars!\n\n"
             "Самые дешевые звезды 💸\n"
             "Покупка от 50 ⭐"
         ),
@@ -285,7 +285,7 @@ async def back_main(callback: CallbackQuery):
     await callback.message.answer_video(
         video=video,
         caption=(
-            "🌲👋 Добро пожаловать в Bro Stars!\n\n"
+            "🌲👋 Добро пожаловать в Kuki Stars!\n\n"
             "Самые дешевые звезды 💸\n"
             "Покупка от 50 ⭐"
         ),
