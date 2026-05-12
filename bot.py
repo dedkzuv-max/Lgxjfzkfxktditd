@@ -106,7 +106,7 @@ menu = InlineKeyboardMarkup(
         [
             InlineKeyboardButton(
                 text="💬 Отзывы",
-                url="https://t.me/"
+                url="https://t.me/KukiStarkz"
             )
         ]
     ]
