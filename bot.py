@@ -10,7 +10,7 @@ from aiogram.types import (
     FSInputFile
 )
 
-TOKEN = "8799385592:AAEsPJ6vMXx0P5Eq_iSqXcUlyCvvW0szJwA"
+TOKEN = "8520830099:AAF5r2OaCaeK2lHWGdiaXp8LATcZnz3N6mU"
 ADMIN_ID = 8656094320
 
 bot = Bot(token=TOKEN)
